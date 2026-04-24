@@ -31,6 +31,11 @@ internal sealed class TrayIconRenderer : IDisposable
         graphics.PixelOffsetMode = PixelOffsetMode.Half;
         graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         graphics.Clear(palette.TransparentColor);
+        if (palette.Background.A > 0)
+        {
+            using SolidBrush backgroundBrush = new(palette.Background);
+            graphics.FillRectangle(backgroundBrush, 0, 0, request.IconSize.Width, request.IconSize.Height);
+        }
 
         Rectangle contentBounds = new(
             x: 0,

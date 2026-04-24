@@ -6,10 +6,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private static readonly (int Minutes, string Label)[] Presets =
     [
+        (5, "Start 5 min"),
+        (10, "Start 10 min"),
         (15, "Start 15 min"),
         (25, "Start 25 min"),
+        (30, "Start 30 min"),
         (45, "Start 45 min"),
         (60, "Start 60 min"),
+        (90, "Start 90 min"),
+        (120, "Start 120 min"),
     ];
 
     private readonly NotifyIcon notifyIcon;
@@ -17,6 +22,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly TrayIconRenderer renderer = new();
     private readonly TimerController timerController = new();
     private readonly CompletionNotificationService notificationService = new();
+    private readonly DailyPulseService dailyPulseService = new();
+    private readonly DailyPulseView dailyPulseView = new();
     private readonly Dictionary<DemoSchemeId, ToolStripMenuItem> schemeItems = [];
     private readonly Dictionary<ThemeMode, ToolStripMenuItem> themeItems = [];
     private readonly List<ToolStripMenuItem> presetItems = [];
@@ -63,6 +70,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private ContextMenuStrip BuildMenu()
     {
         ContextMenuStrip menu = new();
+        ToolStripControlHost pulseHost = new(dailyPulseView)
+        {
+            AutoSize = false,
+            Size = dailyPulseView.Size,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+        };
+
+        menu.Items.Add(pulseHost);
+        menu.Items.Add(new ToolStripSeparator());
+
         foreach ((int minutes, string label) in Presets)
         {
             ToolStripMenuItem item = new(label, null, (_, _) => StartPreset(minutes));
@@ -136,9 +154,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         try
         {
-            TimerSnapshot snapshot = timerController.GetSnapshot(DateTimeOffset.UtcNow);
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            TimerSnapshot snapshot = timerController.GetSnapshot(now);
             if (snapshot.CompletedThisTick)
             {
+                dailyPulseService.RecordCompletion(now);
                 notificationService.ShowCompleted(notifyIcon);
             }
 
@@ -162,6 +182,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             previousIcon?.Dispose();
             notifyIcon.Text = BuildTooltip(snapshot, dpiScale);
             UpdateMenuState(snapshot);
+            dailyPulseView.UpdateSnapshot(dailyPulseService.GetTodaySnapshot(now), currentThemeMode);
         }
         catch (Exception exception)
         {
@@ -181,7 +202,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             item.Checked = themeMode == currentThemeMode;
         }
 
-        bool hasActiveTimer = snapshot.Phase == TimerPhase.Running;
+        bool hasActiveTimer = snapshot.Phase is TimerPhase.Running or TimerPhase.Overtime;
         stopItem.Enabled = hasActiveTimer;
         resetItem.Enabled = snapshot.LastStartedMinutes.HasValue;
     }
@@ -194,12 +215,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
         string timerLabel = snapshot.Phase switch
         {
             TimerPhase.Running when snapshot.VisualMode == TrayIconVisualMode.Text => $"Remaining {snapshot.DisplayText}",
+            TimerPhase.Overtime => $"Overtime {FormatDuration(snapshot.Overtime)}",
             TimerPhase.Completed => "Completed",
             _ => "Idle",
         };
 
         string tooltip = $"ZenTimeBox | {timerLabel} | {schemeLabel} | {themeLabel} | {(dpiScale * 100):0}% | {iconPixels}px";
         return tooltip.Length <= 63 ? tooltip : tooltip[..63];
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        int totalMinutes = Math.Max(0, (int)Math.Floor(duration.TotalMinutes));
+        int seconds = Math.Max(0, duration.Seconds);
+        return $"{totalMinutes:0}:{seconds:00}";
     }
 
     private static float GetDpiScale()

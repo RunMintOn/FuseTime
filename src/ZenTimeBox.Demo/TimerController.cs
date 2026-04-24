@@ -11,7 +11,8 @@ internal sealed class TimerController
         activeSession = new TimerSession(
             DurationMinutes: durationMinutes,
             StartedAtUtc: now,
-            EndAtUtc: now.AddMinutes(durationMinutes));
+            EndAtUtc: now.AddMinutes(durationMinutes),
+            CompletionRecorded: false);
     }
 
     public void Stop()
@@ -42,6 +43,7 @@ internal sealed class TimerController
                 TotalDuration: TimeSpan.Zero,
                 Elapsed: TimeSpan.Zero,
                 Remaining: TimeSpan.Zero,
+                Overtime: TimeSpan.Zero,
                 ShowSecondBorder: false,
                 SecondBorderRatio: 0d,
                 LastStartedMinutes: lastStartedMinutes,
@@ -52,19 +54,27 @@ internal sealed class TimerController
         TimeSpan remaining = activeSession.EndAtUtc - now;
         if (remaining <= TimeSpan.Zero)
         {
-            activeSession = null;
+            TimeSpan overtime = now - activeSession.EndAtUtc;
+            bool completedThisTick = !activeSession.CompletionRecorded;
+            if (completedThisTick)
+            {
+                activeSession = activeSession with { CompletionRecorded = true };
+            }
+
+            int overtimeMinutes = Math.Max(1, (int)Math.Ceiling(overtime.TotalMinutes));
             return new TimerSnapshot(
-                Phase: TimerPhase.Completed,
-                DisplayText: null,
-                VisualMode: TrayIconVisualMode.Logo,
-                StateColor: StateColor.Focus,
+                Phase: TimerPhase.Overtime,
+                DisplayText: $"-{overtimeMinutes}",
+                VisualMode: TrayIconVisualMode.Text,
+                StateColor: StateColor.Overtime,
                 TotalDuration: totalDuration,
-                Elapsed: totalDuration,
+                Elapsed: totalDuration + overtime,
                 Remaining: TimeSpan.Zero,
+                Overtime: overtime,
                 ShowSecondBorder: false,
                 SecondBorderRatio: 0d,
                 LastStartedMinutes: lastStartedMinutes,
-                CompletedThisTick: true);
+                CompletedThisTick: completedThisTick);
         }
 
         TimeSpan elapsed = totalDuration - remaining;
@@ -92,6 +102,7 @@ internal sealed class TimerController
             TotalDuration: totalDuration,
             Elapsed: elapsed,
             Remaining: remaining,
+            Overtime: TimeSpan.Zero,
             ShowSecondBorder: showSecondBorder,
             SecondBorderRatio: secondBorderRatio,
             LastStartedMinutes: lastStartedMinutes,

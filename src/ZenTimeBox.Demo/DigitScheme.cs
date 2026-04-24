@@ -40,8 +40,14 @@ internal sealed class FontDigitScheme(
     public void Draw(Graphics graphics, Rectangle bounds, int number, ThemePalette palette)
     {
         string text = number.ToString();
-        bool singleDigit = text.Length == 1;
-        float fontSize = bounds.Height * (singleDigit ? singleScale : doubleScale);
+        float scale = text.Length switch
+        {
+            1 => singleScale,
+            2 => doubleScale,
+            3 => doubleScale * 0.76f,
+            _ => doubleScale * 0.60f,
+        };
+        float fontSize = bounds.Height * scale;
 
         using Font font = new(familyName, fontSize, fontStyle, GraphicsUnit.Pixel);
         using GraphicsPath outlinePath = new();

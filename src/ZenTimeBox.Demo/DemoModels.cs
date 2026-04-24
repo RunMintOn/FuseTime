@@ -20,6 +20,7 @@ internal enum StateColor
     Focus,
     Warn,
     Critical,
+    Overtime,
 }
 
 internal enum TrayIconVisualMode
@@ -33,6 +34,7 @@ internal enum TimerPhase
     Idle,
     Running,
     Completed,
+    Overtime,
 }
 
 internal sealed record DemoRenderRequest(
@@ -51,12 +53,14 @@ internal sealed record ThemePalette(
     Color Outline,
     Color BorderProgress,
     Color BorderTrack,
+    Color Background,
     Color TransparentColor);
 
 internal sealed record TimerSession(
     int DurationMinutes,
     DateTimeOffset StartedAtUtc,
-    DateTimeOffset EndAtUtc);
+    DateTimeOffset EndAtUtc,
+    bool CompletionRecorded);
 
 internal sealed record TimerSnapshot(
     TimerPhase Phase,
@@ -66,7 +70,14 @@ internal sealed record TimerSnapshot(
     TimeSpan TotalDuration,
     TimeSpan Elapsed,
     TimeSpan Remaining,
+    TimeSpan Overtime,
     bool ShowSecondBorder,
     double SecondBorderRatio,
     int? LastStartedMinutes,
     bool CompletedThisTick);
+
+internal sealed record DailyPulseSnapshot(
+    DateOnly Date,
+    int CurrentHour,
+    bool[] CompletedHours,
+    int CompletionCount);
