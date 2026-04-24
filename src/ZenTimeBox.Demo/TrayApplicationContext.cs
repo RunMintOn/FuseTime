@@ -24,11 +24,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly CompletionNotificationService notificationService = new();
     private readonly DailyPulseService dailyPulseService = new();
     private readonly DailyPulseView dailyPulseView = new();
+    private readonly TimerMenuSettingsService menuSettingsService = new();
+    private readonly ContextMenuStrip contextMenu;
     private readonly Dictionary<DemoSchemeId, ToolStripMenuItem> schemeItems = [];
     private readonly Dictionary<ThemeMode, ToolStripMenuItem> themeItems = [];
-    private readonly List<ToolStripMenuItem> presetItems = [];
+    private readonly List<ToolStripItem> favoriteMenuItems = [];
+    private ToolStripSeparator timerMenuSeparator = null!;
     private ToolStripMenuItem stopItem = null!;
     private ToolStripMenuItem resetItem = null!;
+    private DurationSettingsForm? settingsForm;
     private Icon? currentIcon;
 
     private DemoSchemeId currentScheme = DemoSchemeId.SegoeBold;
@@ -39,7 +43,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         uiTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         uiTimer.Tick += (_, _) => RefreshFromClock();
 
-        ContextMenuStrip contextMenu = BuildMenu();
+        contextMenu = BuildMenu();
 
         notifyIcon = new NotifyIcon
         {
@@ -69,6 +73,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             uiTimer.Dispose();
             currentIcon?.Dispose();
             renderer.Dispose();
+            contextMenu.Dispose();
         }
 
         base.Dispose(disposing);
@@ -81,7 +86,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ImeMode = ImeMode.Disable,
         };
         menu.HandleCreated += (_, _) => ImeSuppressor.DisableForHandle(menu.Handle);
-        menu.Opening += (_, _) => ImeSuppressor.MatchForegroundKeyboardLayout();
+        menu.Opening += (_, _) =>
+        {
+            RebuildTimerMenuItems();
+            ImeSuppressor.MatchForegroundKeyboardLayout();
+        };
 
         ToolStripControlHost pulseHost = new(dailyPulseView)
         {
@@ -93,13 +102,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         menu.Items.Add(pulseHost);
         menu.Items.Add(new ToolStripSeparator());
-
-        foreach ((int minutes, string label) in Presets)
-        {
-            ToolStripMenuItem item = new(label, null, (_, _) => StartPreset(minutes));
-            presetItems.Add(item);
-            menu.Items.Add(item);
-        }
+        RebuildTimerMenuItems(menu);
 
         stopItem = new ToolStripMenuItem("Stop", null, (_, _) =>
         {
@@ -112,6 +115,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             timerController.Reset(DateTimeOffset.UtcNow);
             RefreshFromClock();
         });
+
+        ToolStripMenuItem settingsItem = new("Settings...", null, (_, _) => OpenSettings());
 
         ToolStripMenuItem rendererMenu = new("Renderer");
         foreach (IDigitScheme scheme in DigitSchemes.All)
@@ -135,6 +140,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(stopItem);
         menu.Items.Add(resetItem);
+        menu.Items.Add(settingsItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(rendererMenu);
         menu.Items.Add(themeMenu);
@@ -143,6 +149,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         UpdateMenuState(timerController.GetSnapshot(DateTimeOffset.UtcNow));
         return menu;
+    }
+
+    private void RebuildTimerMenuItems(ContextMenuStrip? targetMenu = null)
+    {
+        ContextMenuStrip menu = targetMenu ?? contextMenu;
+        foreach (ToolStripItem item in favoriteMenuItems)
+        {
+            menu.Items.Remove(item);
+            item.Dispose();
+        }
+
+        favoriteMenuItems.Clear();
+        if (timerMenuSeparator is not null)
+        {
+            menu.Items.Remove(timerMenuSeparator);
+            timerMenuSeparator.Dispose();
+        }
+
+        int insertIndex = 2;
+        TimerMenuSettings settings = menuSettingsService.GetSettings();
+        foreach (int minutes in settings.FavoriteMinutes)
+        {
+            ToolStripMenuItem item = new($"Start {minutes} min", null, (_, _) => StartPreset(minutes));
+            favoriteMenuItems.Add(item);
+            menu.Items.Insert(insertIndex++, item);
+        }
+
+        timerMenuSeparator = new ToolStripSeparator();
+        menu.Items.Insert(insertIndex, timerMenuSeparator);
     }
 
     private void AddThemeItem(ToolStripMenuItem menu, ThemeMode mode, string label)
@@ -161,6 +196,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         timerController.Start(minutes, DateTimeOffset.UtcNow);
         RefreshFromClock();
+    }
+
+    private void OpenSettings()
+    {
+        if (settingsForm is { IsDisposed: false })
+        {
+            settingsForm.Activate();
+            return;
+        }
+
+        settingsForm = new DurationSettingsForm(menuSettingsService, () => RebuildTimerMenuItems());
+        settingsForm.FormClosed += (_, _) => settingsForm = null;
+        settingsForm.Show();
     }
 
     private void RefreshFromClock()
