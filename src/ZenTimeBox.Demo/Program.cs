@@ -8,13 +8,33 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += (_, args) => AppDiagnostics.LogException(args.Exception, "WinForms thread exception");
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception exception)
+            {
+                AppDiagnostics.LogException(exception, "AppDomain unhandled exception");
+            }
+        };
 
         using Mutex singleInstanceMutex = new(initiallyOwned: true, SingleInstanceMutexName, out bool createdNew);
         if (!createdNew)
         {
+            AppDiagnostics.LogInfo("Second instance detected; exiting.");
             return;
         }
 
-        Application.Run(new TrayApplicationContext());
+        try
+        {
+            AppDiagnostics.LogInfo("ZenTimeBox starting.");
+            Application.Run(new TrayApplicationContext());
+            AppDiagnostics.LogInfo("ZenTimeBox stopped normally.");
+        }
+        catch (Exception exception)
+        {
+            AppDiagnostics.LogException(exception, "Application.Run failed");
+            throw;
+        }
     }
 }

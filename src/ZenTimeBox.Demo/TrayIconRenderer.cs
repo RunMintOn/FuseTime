@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -9,26 +8,15 @@ namespace ZenTimeBox.Demo;
 internal sealed class TrayIconRenderer : IDisposable
 {
     private readonly ThemeResolver themeResolver = new();
-    private readonly ConcurrentDictionary<DemoRenderRequest, Icon> cache = new();
 
     public Icon Render(DemoRenderRequest request)
     {
-        return cache.GetOrAdd(request, CreateIcon);
-    }
-
-    public void ClearCache()
-    {
-        foreach ((_, Icon icon) in cache)
-        {
-            icon.Dispose();
-        }
-
-        cache.Clear();
+        return CreateIcon(request);
     }
 
     public void Dispose()
     {
-        ClearCache();
+        // No cached icons to release.
     }
 
     private Icon CreateIcon(DemoRenderRequest request)

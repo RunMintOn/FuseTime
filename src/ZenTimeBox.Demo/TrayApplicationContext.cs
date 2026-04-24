@@ -22,13 +22,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly List<ToolStripMenuItem> presetItems = [];
     private ToolStripMenuItem stopItem = null!;
     private ToolStripMenuItem resetItem = null!;
+    private Icon? currentIcon;
 
     private DemoSchemeId currentScheme = DemoSchemeId.SegoeBold;
     private ThemeMode currentThemeMode = ThemeMode.Auto;
 
     public TrayApplicationContext()
     {
-        uiTimer = new System.Windows.Forms.Timer { Interval = 250 };
+        uiTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         uiTimer.Tick += (_, _) => RefreshFromClock();
 
         ContextMenuStrip contextMenu = BuildMenu();
@@ -52,6 +53,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             notifyIcon.Visible = false;
             notifyIcon.Dispose();
             uiTimer.Dispose();
+            currentIcon?.Dispose();
             renderer.Dispose();
         }
 
@@ -132,28 +134,39 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void RefreshFromClock()
     {
-        TimerSnapshot snapshot = timerController.GetSnapshot(DateTimeOffset.UtcNow);
-        if (snapshot.CompletedThisTick)
+        try
         {
-            notificationService.ShowCompleted(notifyIcon);
+            TimerSnapshot snapshot = timerController.GetSnapshot(DateTimeOffset.UtcNow);
+            if (snapshot.CompletedThisTick)
+            {
+                notificationService.ShowCompleted(notifyIcon);
+            }
+
+            float dpiScale = GetDpiScale();
+            Size iconSize = GetIconSize(dpiScale);
+            DemoRenderRequest request = new(
+                DisplayText: snapshot.DisplayText,
+                VisualMode: snapshot.VisualMode,
+                SchemeId: currentScheme,
+                ThemeMode: currentThemeMode,
+                StateColor: snapshot.StateColor,
+                ShowSecondBorder: snapshot.ShowSecondBorder,
+                SecondBorderRatio: snapshot.SecondBorderRatio,
+                DpiScale: dpiScale,
+                IconSize: iconSize);
+
+            Icon nextIcon = renderer.Render(request);
+            Icon? previousIcon = currentIcon;
+            currentIcon = nextIcon;
+            notifyIcon.Icon = nextIcon;
+            previousIcon?.Dispose();
+            notifyIcon.Text = BuildTooltip(snapshot, dpiScale);
+            UpdateMenuState(snapshot);
         }
-
-        float dpiScale = GetDpiScale();
-        Size iconSize = GetIconSize(dpiScale);
-        DemoRenderRequest request = new(
-            DisplayText: snapshot.DisplayText,
-            VisualMode: snapshot.VisualMode,
-            SchemeId: currentScheme,
-            ThemeMode: currentThemeMode,
-            StateColor: snapshot.StateColor,
-            ShowSecondBorder: snapshot.ShowSecondBorder,
-            SecondBorderRatio: snapshot.SecondBorderRatio,
-            DpiScale: dpiScale,
-            IconSize: iconSize);
-
-        notifyIcon.Icon = renderer.Render(request);
-        notifyIcon.Text = BuildTooltip(snapshot, dpiScale);
-        UpdateMenuState(snapshot);
+        catch (Exception exception)
+        {
+            AppDiagnostics.LogException(exception, "RefreshFromClock failed");
+        }
     }
 
     private void UpdateMenuState(TimerSnapshot snapshot)
@@ -185,7 +198,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _ => "Idle",
         };
 
-        return $"ZenTimeBox | {timerLabel} | {schemeLabel} | {themeLabel} | {(dpiScale * 100):0}% | {iconPixels}px";
+        string tooltip = $"ZenTimeBox | {timerLabel} | {schemeLabel} | {themeLabel} | {(dpiScale * 100):0}% | {iconPixels}px";
+        return tooltip.Length <= 63 ? tooltip : tooltip[..63];
     }
 
     private static float GetDpiScale()

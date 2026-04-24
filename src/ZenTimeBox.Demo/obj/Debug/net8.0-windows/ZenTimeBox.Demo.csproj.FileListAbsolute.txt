@@ -12,3 +12,4 @@ D:\11_myProject\19-zen-timer\src\ZenTimeBox.Demo\obj\Debug\net8.0-windows\refint
 D:\11_myProject\19-zen-timer\src\ZenTimeBox.Demo\obj\Debug\net8.0-windows\ZenTimeBox.Demo.pdb
 D:\11_myProject\19-zen-timer\src\ZenTimeBox.Demo\obj\Debug\net8.0-windows\ZenTimeBox.Demo.genruntimeconfig.cache
 D:\11_myProject\19-zen-timer\src\ZenTimeBox.Demo\obj\Debug\net8.0-windows\ref\ZenTimeBox.Demo.dll
+D:\11_myProject\19-zen-timer\src\ZenTimeBox.Demo\obj\Debug\net8.0-windows\ZenTimeBox.Demo.sourcelink.json
