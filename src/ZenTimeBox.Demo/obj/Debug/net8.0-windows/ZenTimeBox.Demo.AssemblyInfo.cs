@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ZenTimeBox.Demo")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6a93f25e376b82345907c22c931bd9f1db16405b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8749018334d7fce3d9242fc575ad8b64dc397589")]
 [assembly: System.Reflection.AssemblyProductAttribute("ZenTimeBox.Demo")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ZenTimeBox.Demo")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -17,6 +17,13 @@ internal sealed class DailyPulseView : Control
         MinimumSize = new Size(228, 48);
         Size = MinimumSize;
         TabStop = false;
+        ImeSuppressor.DisableFor(this);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        ImeSuppressor.DisableForHandle(Handle);
     }
 
     public void UpdateSnapshot(DailyPulseSnapshot nextSnapshot, ThemeMode nextThemeMode)

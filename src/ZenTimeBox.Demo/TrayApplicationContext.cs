@@ -69,7 +69,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private ContextMenuStrip BuildMenu()
     {
-        ContextMenuStrip menu = new();
+        ContextMenuStrip menu = new()
+        {
+            ImeMode = ImeMode.Disable,
+        };
+        menu.HandleCreated += (_, _) => ImeSuppressor.DisableForHandle(menu.Handle);
+
         ToolStripControlHost pulseHost = new(dailyPulseView)
         {
             AutoSize = false,
