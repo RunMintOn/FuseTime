@@ -7,6 +7,7 @@ static class Program
     [STAThread]
     static void Main()
     {
+        ImeSuppressor.DisableForCurrentThread();
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, args) => AppDiagnostics.LogException(args.Exception, "WinForms thread exception");

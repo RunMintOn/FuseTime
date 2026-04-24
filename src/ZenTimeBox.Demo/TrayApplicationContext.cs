@@ -47,6 +47,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = contextMenu,
             Text = "ZenTimeBox Demo",
         };
+        notifyIcon.MouseDown += (_, args) =>
+        {
+            if (args.Button == MouseButtons.Right)
+            {
+                ImeSuppressor.MatchForegroundKeyboardLayout();
+            }
+        };
 
         uiTimer.Start();
         RefreshFromClock();
@@ -74,6 +81,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ImeMode = ImeMode.Disable,
         };
         menu.HandleCreated += (_, _) => ImeSuppressor.DisableForHandle(menu.Handle);
+        menu.Opening += (_, _) => ImeSuppressor.MatchForegroundKeyboardLayout();
 
         ToolStripControlHost pulseHost = new(dailyPulseView)
         {
